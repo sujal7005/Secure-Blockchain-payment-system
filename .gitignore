@@ -1,0 +1,29 @@
+# Environment variables
+.env
+.env.*
+
+# Node modules
+node_modules/
+
+# Logs
+logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build folders
+dist/
+build/
+
+# Blockchain files
+Blockchain/artifacts/
+Blockchain/cache/
+
+# Backend files
+Backend/node_modules/
+
+# Frontend files
+client/node_modules/
+client/dist/
