@@ -15,9 +15,6 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [show2FAModal, setShow2FAModal] = useState(false);
-const [tempToken, setTempToken] = useState('');
-const [pendingEmail, setPendingEmail] = useState('');
   
   const { login, loginWithPrivateKey } = useAuth();
   const navigate = useNavigate();
@@ -35,15 +32,8 @@ const [pendingEmail, setPendingEmail] = useState('');
       }
 
       try {
-        // const result = await login(email, password);
-        if (result.requires2FA) {
-          setPendingEmail(email);
-          setTempToken(result.tempToken);
-          setShow2FAModal(true);
-          setLoading(false);
-          return;
-        }
         const result = await login(email, password);
+        
         if (result.success) {
           // Save to localStorage if remember me is checked
           if (rememberMe) {
@@ -56,6 +46,7 @@ const [pendingEmail, setPendingEmail] = useState('');
           setError(result.message || 'Login failed. Please try again.');
         }
       } catch (err) {
+        console.error('Login error:', err);
         setError('An error occurred. Please try again.');
       } finally {
         setLoading(false);
@@ -89,6 +80,7 @@ const [pendingEmail, setPendingEmail] = useState('');
           setError(result.message || 'Login failed. Invalid private key');
         }
       } catch (err) {
+        console.error('Private key login error:', err);
         setError('Invalid private key. Please check and try again.');
       } finally {
         setLoading(false);

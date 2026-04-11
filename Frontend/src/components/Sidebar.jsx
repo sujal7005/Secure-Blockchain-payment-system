@@ -1,8 +1,17 @@
 // Frontend/src/components/Sidebar.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 export function Sidebar({ isSidebarOpen, setIsSidebarOpen, activePage, setActivePage, onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { user, token } = useAuth();
+  const [userData, setUserData] = useState({
+    fullName: '',
+    email: '',
+    avatar: '',
+    walletAddress: ''
+  });
+  const [loading, setLoading] = useState(true);
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
@@ -10,6 +19,65 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, activePage, setActive
     { id: "wallet", label: "Wallet", icon: "💰" },
     { id: "settings", label: "Settings", icon: "⚙️" }
   ];
+
+  // Fetch user data from backend
+  useEffect(() => {
+    if (user) {
+      setUserData({
+        fullName: user.fullName || 'User',
+        email: user.email || '',
+        avatar: user.avatar || '',
+        walletAddress: user.walletAddress || ''
+      });
+      setLoading(false);
+    } else if (token) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, token]);
+
+  const fetchUserData = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/users/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setUserData({
+            fullName: data.user.fullName || 'User',
+            email: data.user.email || '',
+            avatar: data.user.avatar || '',
+            walletAddress: data.user.walletAddress || ''
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get initials for avatar
+  const getInitials = () => {
+    if (userData.fullName && userData.fullName !== 'User') {
+      return userData.fullName.charAt(0).toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Get short wallet address
+  const getShortAddress = () => {
+    if (userData.walletAddress && userData.walletAddress.length > 10) {
+      return `${userData.walletAddress.slice(0, 6)}...${userData.walletAddress.slice(-4)}`;
+    }
+    return '';
+  };
 
   return (
     <div
@@ -91,14 +159,27 @@ export function Sidebar({ isSidebarOpen, setIsSidebarOpen, activePage, setActive
           }}
           className={`flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl p-3 hover:bg-white/10 transition cursor-pointer ${collapsed ? "justify-center" : ""}`}
         >
+          {/* Avatar */}
           <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-400 to-indigo-500 flex items-center justify-center font-bold text-white shrink-0">
-            H
+            {userData.avatar ? (
+              <img 
+                src={userData.avatar} 
+                alt="Profile" 
+                className="w-full h-full rounded-full object-cover"
+              />
+            ) : (
+              <span className="text-lg">{getInitials()}</span>
+            )}
           </div>
 
           {!collapsed && (
             <div className="flex flex-col flex-1">
-              <span className="text-white text-sm font-semibold">My Account</span>
-              <span className="text-white/40 text-[10px]">View Profile</span>
+              <span className="text-white text-sm font-semibold truncate">
+                {loading ? 'Loading...' : userData.fullName}
+              </span>
+              <span className="text-white/40 text-[10px] truncate">
+                {getShortAddress() || userData.email || 'View Profile'}
+              </span>
             </div>
           )}
 

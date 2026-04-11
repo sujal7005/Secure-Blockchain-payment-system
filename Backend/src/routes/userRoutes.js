@@ -2,6 +2,7 @@
 import express from 'express';
 import User from '../models/userModel.js';
 import jwt from 'jsonwebtoken';
+import Transaction from '../models/transactionModel.js';
 
 const router = express.Router();
 
@@ -140,6 +141,151 @@ router.get('/profile', verifyToken, async (req, res) => {
     res.json({ success: true, user });
   } catch (error) {
     console.error('Profile error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Backend/src/routes/userRoutes.js - Add these missing endpoints
+
+// Get wallet info (you already have this, but let's ensure it's correct)
+router.get('/wallet-info', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // Get transactions to calculate balance
+    const transactions = await Transaction.find({ 
+      userId: req.userId, 
+      status: 'completed' 
+    });
+    
+    const balance = transactions.reduce((total, tx) => {
+      if (tx.type === 'payment_received') return total + tx.amount;
+      if (tx.type === 'payment_sent') return total - tx.amount;
+      return total;
+    }, 0);
+    
+    res.json({
+      success: true,
+      balance: balance,
+      walletAddress: user?.walletAddress || '',
+      network: 'Ethereum Mainnet'
+    });
+  } catch (error) {
+    console.error('Wallet info error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get user transactions
+router.get('/transactions', verifyToken, async (req, res) => {
+  try {
+    const transactions = await Transaction.find({ userId: req.userId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    
+    // Format transactions for frontend
+    const formattedTransactions = transactions.map(tx => ({
+      id: tx._id,
+      type: tx.type === 'payment_sent' ? 'sent' : 'received',
+      amount: tx.amount,
+      currency: tx.currency || 'ETH',
+      from: tx.fromAddress,
+      to: tx.toAddress,
+      status: tx.status,
+      description: tx.description,
+      date: tx.createdAt,
+      category: tx.category
+    }));
+    
+    res.json({ success: true, transactions: formattedTransactions });
+  } catch (error) {
+    console.error('Transactions error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get security settings
+router.get('/security-settings', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    const settings = {
+      twoFactorAuth: user?.twoFactorEnabled || false,
+      transactionLimit: user?.securitySettings?.transactionLimit || 10000,
+      notificationEmail: user?.securitySettings?.notificationEmail || true,
+      notificationPush: user?.securitySettings?.notificationPush || true
+    };
+    
+    res.json({ success: true, settings });
+  } catch (error) {
+    console.error('Security settings error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Update security settings
+router.put('/security-settings', verifyToken, async (req, res) => {
+  try {
+    const { twoFactorAuth, transactionLimit, notificationEmail, notificationPush } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        twoFactorEnabled: twoFactorAuth,
+        securitySettings: {
+          transactionLimit,
+          notificationEmail,
+          notificationPush
+        }
+      },
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    res.json({ success: true, message: 'Settings updated' });
+  } catch (error) {
+    console.error('Update security settings error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Upload avatar
+router.post('/upload-avatar', verifyToken, async (req, res) => {
+  try {
+    const { avatar } = req.body;
+    
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { avatar },
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    res.json({ success: true, avatarUrl: user.avatar });
+  } catch (error) {
+    console.error('Upload avatar error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Export private key
+router.get('/export-private-key', verifyToken, async (req, res) => {
+  try {
+    // In production, never store private keys in database
+    // This is a mock implementation
+    const mockPrivateKey = '0x' + Array(64).fill(0).map(() => 
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('');
+    
+    res.json({ success: true, privateKey: mockPrivateKey });
+  } catch (error) {
+    console.error('Export private key error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
